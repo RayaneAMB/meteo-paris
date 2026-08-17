@@ -1,43 +1,67 @@
-// Importation des outils qu'on a installés
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+'use strict';
 
-// Création de l'application serveur
-const app = express();
-app.use(cors());
+const config = require('./src/config');
+const { createApp } = require('./src/app');
 
-// Récupération des variables secrètes depuis le fichier .env
-const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.CLE_API_METEO;
+const app = createApp({ config });
 
-// --- NOTRE ROUTE PRINCIPALE ---
-// Quand quelqu'un visite /api/meteo, ce code s'exécute
-app.get('/api/meteo', async (req, res) => {
-    try {
-        // L'adresse de l'API OpenWeatherMap pour Paris 
-        // (units=metric pour les Celsius, lang=fr pour le français)
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=Paris&appid=${API_KEY}&units=metric&lang=fr`;
-
-        // Le serveur demande les infos à OpenWeatherMap
-        const reponse = await fetch(url);
-        const donnees = await reponse.json();
-
-        // Si la clé API est invalide ou qu'il y a une erreur avec OpenWeatherMap
-        if (!reponse.ok) {
-            return res.status(reponse.status).json(donnees);
-        }
-
-        // Si tout va bien, on renvoie les données météo
-        res.json(donnees);
-
-    } catch (erreur) {
-        console.error("Erreur serveur :", erreur);
-        res.status(500).json({ message: "Erreur lors de la récupération de la météo" });
-    }
+const server = app.listen(config.port, config.host, () => {
+  const { address, port } = server.address();
+  const displayHost = address === '::' || address === '0.0.0.0' ? 'localhost' : address;
+  console.log(`✅ Météo Monde démarré sur http://${displayHost}:${port}`);
+  console.log(`   Environnement : ${config.env} — données fournies par Open-Meteo (sans clé d'API)`);
 });
 
-// Allumage du serveur
-app.listen(PORT, () => {
-    console.log(`✅ Serveur démarré avec succès sur http://localhost:${PORT}`);
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(
+      `❌ Le port ${config.port} est déjà utilisé. Arrête l'autre programme, ` +
+        `ou lance le serveur sur un autre port : PORT=3001 npm start`
+    );
+  } else if (error.code === 'EACCES') {
+    console.error(`❌ Permission refusée sur le port ${config.port}. Choisis un port supérieur à 1024.`);
+  } else {
+    console.error('❌ Impossible de démarrer le serveur :', error);
+  }
+  process.exitCode = 1;
+});
+
+// Les connexions inactives sont fermées au bout d'un moment : une connexion
+// ouverte indéfiniment est une ressource immobilisée pour rien.
+server.headersTimeout = 20_000;
+server.requestTimeout = 30_000;
+server.keepAliveTimeout = 10_000;
+
+/** Arrêt propre : on laisse les requêtes en cours se terminer, sans traîner. */
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log(`\n${signal} reçu — arrêt en cours...`);
+  app.locals.stopBackgroundWork?.();
+
+  const forceExit = setTimeout(() => {
+    console.error('Arrêt forcé après 5 s.');
+    process.exit(1);
+  }, 5_000).unref();
+
+  server.close((error) => {
+    clearTimeout(forceExit);
+    if (error) {
+      console.error('Erreur pendant la fermeture :', error);
+      process.exit(1);
+    }
+    console.log('Serveur arrêté proprement.');
+  });
+
+  // Coupe les connexions persistantes qui empêcheraient close() d'aboutir.
+  server.closeIdleConnections?.();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Promesse rejetée sans gestionnaire :', reason);
 });

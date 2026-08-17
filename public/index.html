@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="La météo de n'importe quelle ville de la planète : conditions actuelles, heure par heure et prévisions sur 7 jours.">
+  <meta name="color-scheme" content="light dark">
+  <title>Météo Monde</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Ciel animé : les couleurs sont pilotées par le JS selon la météo réelle. -->
+  <div class="sky" id="sky" aria-hidden="true">
+    <div class="sky__glow"></div>
+    <div class="sky__clouds"></div>
+    <div class="sky__precip" id="sky-precip"></div>
+  </div>
+
+  <a class="skip-link" href="#contenu">Aller au contenu</a>
+
+  <header class="topbar">
+    <div class="topbar__inner">
+      <p class="brand">
+        <span class="brand__mark" id="brand-mark" aria-hidden="true"></span>
+        <span class="brand__text">Météo <strong>Monde</strong></span>
+      </p>
+
+      <search class="finder">
+        <label class="sr-only" for="recherche">Chercher une ville dans le monde</label>
+        <div class="finder__field">
+          <span class="finder__icon" id="finder-icon" aria-hidden="true"></span>
+          <input
+            id="recherche"
+            type="text"
+            role="combobox"
+            autocomplete="off"
+            spellcheck="false"
+            enterkeyhint="search"
+            placeholder="Tokyo, Lima, Reykjavík…"
+            aria-expanded="false"
+            aria-controls="suggestions"
+            aria-describedby="finder-aide"
+            aria-autocomplete="list">
+          <button class="finder__clear" id="effacer" type="button" hidden>
+            <span class="sr-only">Effacer la recherche</span>
+            <span aria-hidden="true">✕</span>
+          </button>
+          <span class="finder__spinner" id="finder-spinner" hidden aria-hidden="true"></span>
+        </div>
+        <p class="sr-only" id="finder-aide">Tape au moins deux lettres, puis navigue avec les flèches et valide avec Entrée.</p>
+        <ul class="suggestions" id="suggestions" role="listbox" aria-label="Villes proposées" hidden></ul>
+      </search>
+
+      <div class="actions">
+        <button class="btn btn--icon" id="ma-position" type="button" title="Utiliser ma position">
+          <span class="sr-only">Utiliser ma position</span>
+          <span class="btn__glyph" id="glyph-position" aria-hidden="true"></span>
+        </button>
+
+        <div class="segmented" role="group" aria-label="Unités">
+          <button class="segmented__btn is-active" id="unite-metric" type="button" aria-pressed="true">°C</button>
+          <button class="segmented__btn" id="unite-imperial" type="button" aria-pressed="false">°F</button>
+        </div>
+
+        <button class="btn btn--icon" id="theme" type="button" title="Changer de thème">
+          <span class="sr-only">Changer de thème (clair, sombre, automatique)</span>
+          <span class="btn__glyph" id="glyph-theme" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <!-- Villes mises de côté + quelques capitales pour démarrer. -->
+    <section class="favoris" aria-label="Accès rapide">
+      <ul class="favoris__list" id="favoris-list"></ul>
+    </section>
+
+    <p class="alerte" id="alerte" hidden role="status"></p>
+
+    <p class="erreur" id="erreur" hidden>
+      <span class="erreur__texte" id="erreur-texte"></span>
+      <button class="btn btn--ghost" id="reessayer" type="button">Réessayer</button>
+    </p>
+
+    <!-- aria-busy passe à true pendant les chargements, ce qui déclenche les squelettes. -->
+    <div class="board" id="board" aria-busy="true">
+      <section class="card hero">
+        <div class="hero__head">
+          <h1 class="hero__place" id="place-nom">Chargement…</h1>
+          <p class="hero__where">
+            <span id="place-region"></span>
+            <span class="badge" id="place-pays" hidden></span>
+            <button class="btn btn--star" id="favori-toggle" type="button" aria-pressed="false" hidden>
+              <span class="sr-only">Ajouter aux favoris</span>
+              <span class="btn__glyph" id="glyph-star" aria-hidden="true"></span>
+            </button>
+          </p>
+          <p class="hero__clock">
+            <time id="place-heure">--:--</time>
+            <span class="hero__clock-label">heure locale</span>
+          </p>
+        </div>
+
+        <div class="hero__body">
+          <div class="hero__icon" id="hero-icone" aria-hidden="true"></div>
+          <p class="hero__temp">
+            <span id="hero-temp">--</span><span class="hero__unit" id="hero-unite">°C</span>
+          </p>
+          <div class="hero__facts">
+            <p class="hero__cond" id="hero-condition">—</p>
+            <p class="hero__feels">Ressenti <span id="hero-ressenti">--</span></p>
+            <p class="hero__range">
+              <span class="up">▲ <span id="hero-max">--</span></span>
+              <span class="down">▼ <span id="hero-min">--</span></span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card tuiles" aria-labelledby="titre-details">
+        <h2 class="card__title" id="titre-details">Conditions détaillées</h2>
+        <ul class="tuiles__grid" id="tuiles-grid"></ul>
+      </section>
+
+      <section class="card horaire" aria-labelledby="titre-horaire">
+        <h2 class="card__title" id="titre-horaire">Les prochaines 24 heures</h2>
+        <div class="horaire__scroll" id="horaire-scroll" tabindex="0" role="group" aria-label="Prévisions heure par heure, défilement horizontal">
+          <div class="horaire__inner" id="horaire-inner"></div>
+        </div>
+      </section>
+
+      <section class="card jours" aria-labelledby="titre-jours">
+        <h2 class="card__title" id="titre-jours">7 prochains jours</h2>
+        <ul class="jours__list" id="jours-list"></ul>
+      </section>
+    </div>
+
+    <footer class="pied">
+      <p>
+        Données <a href="https://open-meteo.com/" rel="noopener noreferrer" target="_blank">Open-Meteo</a>
+        — sans clé d'API, sans traceur.
+      </p>
+      <p class="pied__maj">
+        Mis à jour <span id="maj">—</span>
+        <button class="btn btn--ghost" id="rafraichir" type="button">Actualiser</button>
+      </p>
+    </footer>
+  </main>
+
+  <!-- Annonces pour les lecteurs d'écran (changement de ville, erreurs). -->
+  <p class="sr-only" id="annonce" role="status" aria-live="polite"></p>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

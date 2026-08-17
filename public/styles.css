@@ -1,0 +1,1498 @@
+/* =========================================================================
+   Météo Monde — feuille de style unique.
+   Aucune police ni image externe : tout est local, la CSP reste stricte.
+   ========================================================================= */
+
+/* ------------------------------------------------------------------ Bases */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* Couleurs du ciel : réécrites par le JS selon la météo du lieu affiché. */
+  --sky-1: #3f93ea;
+  --sky-2: #79bdf3;
+  --sky-3: #cfe7fa;
+  --sky-dim: 0;
+  --glow: rgba(255, 240, 200, 0.9);
+  --glow-x: 80%;
+  --glow-y: 10%;
+
+  --ink: #101a2c;
+  --ink-soft: rgba(16, 26, 44, 0.66);
+  --ink-faint: rgba(16, 26, 44, 0.44);
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-2: rgba(255, 255, 255, 0.42);
+  --surface-solid: #ffffff;
+  --border: rgba(255, 255, 255, 0.6);
+  --border-firm: rgba(16, 26, 44, 0.1);
+  --shadow: 0 22px 45px -22px rgba(10, 22, 48, 0.5);
+  --shadow-soft: 0 6px 18px -10px rgba(10, 22, 48, 0.4);
+  --accent: #0a63c4;
+  --accent-ink: #ffffff;
+  --chaud: #e2571f;
+  --froid: #2b7fd4;
+  --pluie: #2f7fd6;
+  --alerte: #a6401a;
+  --alerte-fond: rgba(255, 214, 190, 0.85);
+
+  --rayon: 20px;
+  --rayon-sm: 12px;
+  --colonne: 66px;
+  --transition: 220ms cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+
+:root[data-resolved-theme='dark'] {
+  --sky-dim: 0.5;
+  --ink: #eaf0f8;
+  --ink-soft: rgba(234, 240, 248, 0.72);
+  --ink-faint: rgba(234, 240, 248, 0.48);
+  --surface: rgba(15, 23, 40, 0.58);
+  --surface-2: rgba(15, 23, 40, 0.38);
+  --surface-solid: #131c2f;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-firm: rgba(255, 255, 255, 0.14);
+  --shadow: 0 24px 50px -24px rgba(0, 0, 0, 0.75);
+  --shadow-soft: 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+  --accent: #6ab4ff;
+  --accent-ink: #08192e;
+  --chaud: #ff8a5c;
+  --froid: #7fc0ff;
+  --pluie: #7cc0ff;
+  --alerte: #ffcaa8;
+  --alerte-fond: rgba(120, 45, 20, 0.6);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--ink);
+  background-color: var(--sky-2);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+p,
+ul,
+figure {
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+/* Indispensable : les règles de classe ci-dessous déclarent `display: flex`,
+   ce qui l'emporterait sur le `display: none` que le navigateur applique à
+   l'attribut hidden. Sans ça, les blocs « cachés » resteraient visibles. */
+[hidden] {
+  display: none !important;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration-color: var(--ink-faint);
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  transform: translateY(-200%);
+  transition: transform var(--transition);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* -------------------------------------------------------------------- Ciel */
+
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 46%, var(--sky-3) 100%);
+  transition: background 1.4s ease;
+}
+
+/* Voile sombre appliqué uniquement en thème sombre (--sky-dim). */
+.sky::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(3 7 18 / var(--sky-dim));
+  transition: background 600ms ease;
+}
+
+.sky__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(46vmax 46vmax at var(--glow-x) var(--glow-y), var(--glow), transparent 68%);
+  transition: background 1.4s ease;
+}
+
+/* Deux couches de nuages à vitesses différentes : ça donne de la profondeur. */
+.sky__clouds::before,
+.sky__clouds::after {
+  content: '';
+  position: absolute;
+  inset: -10% -60% auto -60%;
+  height: 70%;
+  background-repeat: repeat-x;
+  opacity: var(--nuages, 0);
+  transition: opacity 1.4s ease;
+}
+
+.sky__clouds::before {
+  background-image: radial-gradient(closest-side, rgba(255, 255, 255, 0.55), transparent 100%);
+  background-size: 46vmax 22vmax;
+  animation: derive 150s linear infinite;
+}
+
+.sky__clouds::after {
+  top: 12%;
+  background-image: radial-gradient(closest-side, rgba(255, 255, 255, 0.38), transparent 100%);
+  background-size: 30vmax 14vmax;
+  animation: derive 90s linear infinite reverse;
+}
+
+@keyframes derive {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(46vmax, 0, 0);
+  }
+}
+
+/* Précipitations : la tuile de fond se répète, et on décale l'arrière-plan
+   d'exactement une hauteur de tuile — la boucle est donc invisible. */
+.sky__precip {
+  position: absolute;
+  inset: 0;
+}
+
+.sky__precip[data-precip='pluie'],
+.sky__precip[data-precip='averses'] {
+  background-image: radial-gradient(1.1px 7px at 6px 4px, rgba(255, 255, 255, 0.75), transparent);
+  background-size: 34px 22px;
+  opacity: 0.5;
+  animation: tombe 0.62s linear infinite;
+}
+
+.sky__precip[data-precip='averses'] {
+  opacity: 0.36;
+  animation-duration: 0.85s;
+}
+
+.sky__precip[data-precip='pluie-forte'] {
+  background-image: radial-gradient(1.4px 10px at 5px 4px, rgba(255, 255, 255, 0.85), transparent);
+  background-size: 22px 26px;
+  opacity: 0.6;
+  animation: tombe 0.4s linear infinite;
+}
+
+.sky__precip[data-precip='neige'] {
+  background-image: radial-gradient(2.2px 2.2px at 8px 8px, rgba(255, 255, 255, 0.95), transparent);
+  background-size: 44px 44px;
+  opacity: 0.75;
+  animation: tombe 6s linear infinite;
+}
+
+@keyframes tombe {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 var(--pas, 22px);
+  }
+}
+
+.sky__precip[data-precip='pluie-forte'] {
+  --pas: 26px;
+}
+
+.sky__precip[data-precip='neige'] {
+  --pas: 44px;
+}
+
+/* ------------------------------------------------------------------ Entête */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 14px clamp(14px, 3vw, 30px);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.14), transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.topbar__inner {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.brand {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brand__mark .glyph {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.4;
+  opacity: 0.9;
+}
+
+.brand__text strong {
+  font-weight: 700;
+}
+
+.brand__globe,
+.brand__meridien,
+.brand__equateur {
+  vector-effect: non-scaling-stroke;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.btn {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.btn:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn--icon {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+}
+
+.btn--ghost {
+  padding: 5px 12px;
+  border-color: transparent;
+  background: var(--surface-2);
+  box-shadow: none;
+  font-size: 0.85rem;
+}
+
+.btn--star {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.btn__glyph {
+  display: inline-flex;
+}
+
+.glyph {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn--star .glyph {
+  width: 21px;
+  height: 21px;
+  stroke-width: 4;
+}
+
+.btn--star[aria-pressed='true'] .glyph {
+  fill: #f0b429;
+  stroke: #d99a12;
+}
+
+.glyph-trou {
+  fill: var(--surface-solid);
+  stroke: none;
+}
+
+.glyph-plein {
+  fill: currentColor;
+  stroke: none;
+}
+
+.segmented {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+.segmented__btn {
+  min-width: 42px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition: background var(--transition), color var(--transition);
+}
+
+.segmented__btn.is-active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* --------------------------------------------------------------- Recherche */
+
+.finder {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 420px;
+}
+
+.finder__field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow var(--transition);
+}
+
+.finder__field:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow-soft);
+}
+
+.finder__icon .glyph {
+  width: 17px;
+  height: 17px;
+  opacity: 0.62;
+}
+
+.finder input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.95rem;
+  color: inherit;
+}
+
+.finder input::placeholder {
+  color: var(--ink-faint);
+}
+
+.finder input:focus {
+  outline: none;
+}
+
+.finder__clear {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+
+.finder__clear:hover {
+  color: var(--ink);
+}
+
+.finder__spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--ink-faint);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: tourne 0.7s linear infinite;
+}
+
+@keyframes tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-firm);
+  border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.suggestion {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.suggestion:hover,
+.suggestion.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.suggestion__nom {
+  font-weight: 600;
+}
+
+.suggestion__lieu {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.suggestion__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.suggestion__col > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestions__vide {
+  padding: 14px 12px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.badge {
+  padding: 2px 7px;
+  border: 1px solid var(--border-firm);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.suggestion .badge {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ Contenu */
+
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 6px clamp(14px, 3vw, 30px) 40px;
+}
+
+.favoris {
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.favoris::-webkit-scrollbar {
+  display: none;
+}
+
+.favoris__list {
+  display: flex;
+  gap: 8px;
+  padding: 2px;
+}
+
+.puce {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 7px 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.puce:hover {
+  background: var(--surface);
+  transform: translateY(-1px);
+}
+
+.puce.is-active {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.puce__nom {
+  padding: 6px 5px 6px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.puce__retirer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.puce.is-active .puce__retirer {
+  background: rgb(255 255 255 / 0.25);
+}
+
+.puce__retirer:hover {
+  background: color-mix(in srgb, var(--ink) 24%, transparent);
+}
+
+.alerte,
+.erreur {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 13px 17px;
+  border: 1px solid color-mix(in srgb, var(--alerte) 35%, transparent);
+  border-radius: var(--rayon-sm);
+  background: var(--alerte-fond);
+  color: var(--alerte);
+  font-size: 0.92rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.erreur__texte {
+  flex: 1;
+}
+
+.board {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+/* Un élément de grille a min-width: auto, donc un enfant large et non
+   compressible (le graphique horaire de 1584 px) pourrait élargir toute la
+   grille et faire déborder la page. min-width: 0 coupe court à ça. */
+.board > * {
+  min-width: 0;
+}
+
+.card {
+  padding: clamp(18px, 2.4vw, 26px);
+  border: 1px solid var(--border);
+  border-radius: var(--rayon);
+  background: var(--surface);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: var(--shadow);
+}
+
+.card__title {
+  margin-bottom: 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------------- Héro */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hero__place {
+  font-size: clamp(1.6rem, 4.4vw, 2.5rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.hero__where {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin-top: 5px;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.hero__clock {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  margin-top: 3px;
+  font-size: 0.86rem;
+  color: var(--ink-faint);
+}
+
+.hero__clock time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.hero__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 3vw, 30px);
+  align-items: center;
+}
+
+.hero__icon .wx {
+  width: clamp(88px, 22vw, 128px);
+  height: clamp(88px, 22vw, 128px);
+}
+
+.hero__temp {
+  display: flex;
+  align-items: flex-start;
+  font-size: clamp(4.2rem, 15vw, 7rem);
+  font-weight: 250;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__unit {
+  margin-top: 0.6em;
+  font-size: 0.28em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+.hero__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.hero__cond {
+  font-size: 1.22rem;
+  font-weight: 600;
+}
+
+.hero__feels {
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.hero__range {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__range .up {
+  color: var(--chaud);
+}
+
+.hero__range .down {
+  color: var(--froid);
+}
+
+/* ------------------------------------------------------------------ Tuiles */
+
+.tuiles__grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+}
+
+.tuile {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--border-firm);
+  border-radius: var(--rayon-sm);
+  background: var(--surface-2);
+}
+
+.tuile--large {
+  grid-column: span 2;
+}
+
+.tuile__tete {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.tuile__tete .glyph {
+  width: 14px;
+  height: 14px;
+  stroke-width: 5;
+}
+
+.tuile__valeur {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tuile__valeur small {
+  font-size: 0.56em;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.tuile__note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.tuile__visuel {
+  margin-top: auto;
+}
+
+/* Barre d'indice UV : le curseur est positionné via --pos (0 → 100 %). */
+.uv-barre {
+  position: relative;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3fae4a, #ffd234, #ff8b2c, #e8452f, #9b5de5);
+}
+
+.uv-curseur {
+  position: absolute;
+  top: 50%;
+  left: clamp(0%, var(--pos, 0%), 100%);
+  width: 13px;
+  height: 13px;
+  border: 2.5px solid var(--surface-solid);
+  border-radius: 50%;
+  background: var(--ink);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  transition: left var(--transition);
+}
+
+.boussole {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+}
+
+.boussole__cercle {
+  stroke: var(--ink-faint);
+  stroke-width: 2;
+}
+
+.boussole__fleche {
+  fill: var(--accent);
+  stroke: none;
+  transition: transform var(--transition);
+}
+
+.boussole__texte {
+  fill: var(--ink-faint);
+  stroke: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.arc-soleil {
+  width: 100%;
+  height: 74px;
+  overflow: visible;
+  fill: none;
+}
+
+.arc-soleil__trace {
+  stroke: var(--ink-faint);
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+}
+
+.arc-soleil__sol {
+  stroke: var(--border-firm);
+  stroke-width: 2;
+}
+
+.arc-soleil__astre {
+  fill: #f7b733;
+  stroke: var(--surface-solid);
+  stroke-width: 2.5;
+}
+
+.arc-soleil__texte {
+  fill: var(--ink-soft);
+  stroke: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.anneau {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto;
+  transform: rotate(-90deg);
+}
+
+.anneau__fond {
+  fill: none;
+  stroke: var(--border-firm);
+  stroke-width: 7;
+}
+
+.anneau__jauge {
+  fill: none;
+  stroke: var(--pluie);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--transition);
+}
+
+/* ------------------------------------------------------- Prévisions horaires */
+
+.horaire__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+
+.horaire__inner {
+  min-width: 100%;
+}
+
+.graphe {
+  display: block;
+  height: 208px;
+}
+
+.graphe__aire {
+  stroke: none;
+}
+
+.graphe__courbe {
+  fill: none;
+  stroke: var(--chaud);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.graphe__point {
+  fill: var(--surface-solid);
+  stroke: var(--chaud);
+  stroke-width: 2.5;
+}
+
+.graphe__temp {
+  fill: var(--ink);
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.graphe__heure {
+  fill: var(--ink-soft);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.graphe__heure--maintenant {
+  fill: var(--accent);
+  font-weight: 700;
+}
+
+.graphe__barre {
+  fill: var(--pluie);
+  opacity: 0.45;
+  rx: 3;
+}
+
+.graphe__proba {
+  fill: var(--pluie);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.graphe__base {
+  stroke: var(--border-firm);
+  stroke-width: 1;
+}
+
+.graphe__jour {
+  stroke: var(--border-firm);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.graphe__jour-texte {
+  fill: var(--ink-faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.graphe__nuit {
+  fill: color-mix(in srgb, var(--ink) 4.5%, transparent);
+}
+
+/* ------------------------------------------------------------ 7 jours */
+
+.jours__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.jour {
+  display: grid;
+  grid-template-columns: 4.9rem 40px 3.2rem 1fr 3.2rem;
+  gap: 11px;
+  align-items: center;
+  padding: 9px 2px;
+  border-top: 1px solid var(--border-firm);
+}
+
+.jour:first-child {
+  border-top: 0;
+}
+
+.jour__nom {
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.jour__nom small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+.jour__icone {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.jour__icone .wx {
+  width: 36px;
+  height: 36px;
+}
+
+.jour__proba {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--pluie);
+}
+
+.jour__min,
+.jour__max {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.jour__min {
+  color: var(--ink-soft);
+}
+
+.jour__max {
+  font-weight: 600;
+}
+
+.jour__piste {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.jour__plage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--depart, 0%);
+  width: var(--largeur, 100%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--froid), var(--chaud));
+}
+
+.jour__maintenant {
+  position: absolute;
+  top: -3px;
+  left: var(--pos, 50%);
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform: translateX(-50%);
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------------- Pied */
+
+.pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 0 4px;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.pied__maj {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* --------------------------------------------- Icônes météo : animations */
+
+.wx {
+  display: block;
+  overflow: visible;
+}
+
+.wx-sun circle {
+  fill: #ffc93c;
+}
+
+.wx-rays line {
+  stroke: #ffc93c;
+  stroke-width: 4.2;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wx-spin 30s linear infinite;
+}
+
+.wx-moon circle {
+  fill: #f2f5ff;
+}
+
+.wx-star {
+  fill: #fff8d8;
+  animation: wx-scintille 3.4s ease-in-out infinite;
+}
+
+.wx-star:nth-of-type(3) {
+  animation-delay: 1.4s;
+}
+
+.wx-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wx-flotte 6s ease-in-out infinite;
+}
+
+.wx-cloud circle,
+.wx-cloud rect {
+  fill: #f4f8ff;
+}
+
+.wx-cloud--pale circle,
+.wx-cloud--pale rect {
+  fill: #d5dfeb;
+}
+
+.wx-cloud--sombre circle,
+.wx-cloud--sombre rect {
+  fill: #9aa8bb;
+}
+
+:root[data-resolved-theme='dark'] .wx-cloud circle,
+:root[data-resolved-theme='dark'] .wx-cloud rect {
+  fill: #dde5f2;
+}
+
+:root[data-resolved-theme='dark'] .wx-cloud--sombre circle,
+:root[data-resolved-theme='dark'] .wx-cloud--sombre rect {
+  fill: #8e9cb0;
+}
+
+.wx-drift {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wx-derive 9s ease-in-out infinite;
+}
+
+.wx-drop {
+  stroke: #58a9ee;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  animation: wx-tombe 1.15s linear infinite;
+}
+
+.wx-rain--fine .wx-drop {
+  stroke-width: 2.6;
+  animation-duration: 1.5s;
+}
+
+.wx-rain--fort .wx-drop {
+  animation-duration: 0.75s;
+}
+
+.wx-drop:nth-of-type(2) {
+  animation-delay: 0.2s;
+}
+.wx-drop:nth-of-type(3) {
+  animation-delay: 0.4s;
+}
+.wx-drop:nth-of-type(4) {
+  animation-delay: 0.6s;
+}
+.wx-drop:nth-of-type(5) {
+  animation-delay: 0.8s;
+}
+
+.wx-flake {
+  fill: #eef5ff;
+  stroke: #b9d6f5;
+  stroke-width: 1;
+  animation: wx-tombe 2.4s linear infinite;
+}
+
+.wx-flake:nth-of-type(2) {
+  animation-delay: 0.5s;
+}
+.wx-flake:nth-of-type(3) {
+  animation-delay: 1s;
+}
+.wx-flake:nth-of-type(4) {
+  animation-delay: 1.5s;
+}
+.wx-flake:nth-of-type(5) {
+  animation-delay: 2s;
+}
+
+.wx-bolt {
+  fill: #ffc93c;
+  animation: wx-eclair 3.6s ease-in-out infinite;
+}
+
+.wx-fog-line {
+  stroke: #cfd8e4;
+  stroke-width: 4;
+  stroke-linecap: round;
+  animation: wx-brume 5s ease-in-out infinite;
+}
+
+.wx-fog-line:nth-of-type(2) {
+  animation-delay: 0.8s;
+}
+.wx-fog-line:nth-of-type(3) {
+  animation-delay: 1.6s;
+}
+
+.wx-ice line {
+  stroke: #9fd8f5;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.wx-inconnu {
+  fill: var(--ink-soft);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+@keyframes wx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wx-flotte {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes wx-derive {
+  0%,
+  100% {
+    transform: translateX(-1.5px);
+  }
+  50% {
+    transform: translateX(1.5px);
+  }
+}
+
+@keyframes wx-tombe {
+  0% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  25% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+}
+
+@keyframes wx-eclair {
+  0%,
+  62%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  66%,
+  74% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes wx-brume {
+  0%,
+  100% {
+    transform: translateX(-2.5px);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateX(2.5px);
+    opacity: 1;
+  }
+}
+
+@keyframes wx-scintille {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* -------------------------------------------------------------- Chargement */
+
+/* Pendant le tout premier chargement, les cartes affichent des blocs animés
+   à la place du contenu. */
+.board[aria-busy='true'] .squelette {
+  color: transparent;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--ink) 7%, transparent) 30%,
+    color-mix(in srgb, var(--ink) 15%, transparent) 50%,
+    color-mix(in srgb, var(--ink) 7%, transparent) 70%
+  );
+  background-size: 220% 100%;
+  border-radius: 8px;
+  animation: chatoie 1.4s ease-in-out infinite;
+}
+
+.board[aria-busy='true'] .squelette * {
+  visibility: hidden;
+}
+
+@keyframes chatoie {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+.board.is-stale {
+  opacity: 0.55;
+  transition: opacity var(--transition);
+}
+
+/* ------------------------------------------------------------ Adaptations */
+
+@media (min-width: 760px) {
+  .board {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero,
+  .horaire {
+    grid-column: 1 / -1;
+  }
+
+  .hero {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+  }
+
+  .hero__body {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 620px) {
+  .brand__text {
+    display: none;
+  }
+
+  .hero__facts {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .hero__range {
+    justify-content: flex-start;
+  }
+
+  .tuile--large {
+    grid-column: span 1;
+  }
+
+  .jour {
+    grid-template-columns: 4.2rem 34px 2.9rem 1fr 2.9rem;
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
